@@ -124,5 +124,6 @@ def load_clean_data():
     return df_total
 
 
-# df_total = load_clean_data()
-# print(df_total.sample(5))
+# communications_data, demographics_data, economy_data, energy_data, geography_data, government_and_civics_data, transportation_data
+df_total = load_clean_data()
+print(df_total.sample(5))
