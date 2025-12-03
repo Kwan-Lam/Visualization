@@ -7,196 +7,308 @@ import requests
 import pycountry
 
 import plotly.express as px   # <-- this line fixes the NameError
+from clean_data import load_and_clean_separate
 
+# Load cleaned datasets
+cleaned_data = load_and_clean_separate()
 
 # --------------------------
 # Data loading and cleaning
 # --------------------------
-df = pd.read_csv("/Users/varshinir/Desktop/viz/CIA Global Statistical Database/energy_data.csv")
+#url_str = "/Users/varshinir/Desktop/viz/CIA Global Statistical Database/"
 
-df.columns = [c.strip() for c in df.columns]
-df = df[df["Country"].notna()].copy()
-df["Country"] = df["Country"].str.replace('"', '').str.strip()
+import dash
+from dash import dcc, html, Input, Output
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import requests
+import pycountry
+import os
+from country_centers import country_center   # your external file
 
-# Convert country names to ISO-3 codes
+
+# -------------------------------------------------
+# Inject CSS to remove white margins
+# -------------------------------------------------
+os.makedirs("assets", exist_ok=True)
+with open("assets/style.css", "w") as f:
+    f.write("""
+        body, html {
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden;
+            background-color: #121212 !important;
+        }
+        .dash-graph {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+    """)
+
+
+# -------------------------------------------------
+# COUNTRY NAME → ISO3
+# -------------------------------------------------
 def get_iso3(name):
     try:
         return pycountry.countries.lookup(name).alpha_3
     except:
         return None
 
-df["ISO3"] = df["Country"].apply(get_iso3)
-df = df[df["ISO3"].notna()]
 
-# Load GeoJSON for world countries
+# -------------------------------------------------
+# CLEAN NUMERIC COLUMNS
+# -------------------------------------------------
+def clean_numeric_columns(df):
+    for col in df.columns:
+        if col not in ["Country", "ISO3"]:
+            df[col] = (
+                df[col].astype(str)
+                .str.replace(",", "")
+                .str.replace("%", "")
+                .str.replace(" ", "")
+                .str.strip()
+            )
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+    return df
+
+
+# -------------------------------------------------
+# LOAD DATASETS
+# -------------------------------------------------
+def get_iso3(name):
+    try:
+        return pycountry.countries.lookup(name).alpha_3
+    except:
+        return None
+
+for df in cleaned_data.values():
+    df["ISO3"] = df["Country"].apply(get_iso3)
+
+datasets = {
+    "energy": cleaned_data["energy"],
+    "demographics": cleaned_data["demographics"],
+    "economy": cleaned_data["economy"]
+}
+
+
+# -------------------------------------------------
+# DROPDOWN OPTIONS
+# -------------------------------------------------
+metric_options = {
+    "energy": {
+        "natural_gas_cubic_meters": "Natural Gas (m³)",
+        "petroleum_bbl_per_day": "Petroleum (bbl/day)",
+        "electricity_access_percent": "Electricity Access (%)",
+        "carbon_dioxide_emissions_Mt": "CO₂ Emissions (Mt)"
+    },
+    "demographics": {
+        "Total_Population": "Total Population",
+        "Population_Growth_Rate": "Population Growth Rate (%)",
+        "Birth_Rate": "Birth Rate (per 1000)",
+        "Death_Rate": "Death Rate (per 1000)",
+        "Median_Age": "Median Age",
+        "Total_Literacy_Rate": "Literacy Rate (%)",
+        "Infant_Mortality_Rate": "Infant Mortality (per 1000 births)",
+        "Youth_Unemployment_Rate": "Youth Unemployment (%)"
+    },
+    "economy": {
+        "Real_GDP_PPP_billion_USD": "GDP (PPP, billion USD)",
+        "Real_GDP_Growth_Rate_percent": "GDP Growth Rate (%)",
+        "Real_GDP_per_Capita_USD": "GDP per Capita (USD)",
+        "Unemployment_Rate_percent": "Unemployment Rate (%)",
+        "Budget_Deficit_percent_of_GDP": "Budget Deficit (% of GDP)",
+        "Public_Debt_percent_of_GDP": "Public Debt (% of GDP)",
+        "Exports_billion_USD": "Exports (billion USD)",
+        "Imports_billion_USD": "Imports (billion USD)",
+        "Population_Below_Poverty_Line_percent": "Poverty Rate (%)"
+    }
+}
+
+
+# -------------------------------------------------
+# WORLD GEOJSON
+# -------------------------------------------------
 geojson_url = "https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json"
 geojson = requests.get(geojson_url).json()
 
-# Metrics
-metrics = [
-    "natural_gas_cubic_meters",
-    "petroleum_bbl_per_day",
-    "electricity_access_percent",
-    "carbon_dioxide_emissions_Mt"
-]
-metric_labels = {
-    "natural_gas_cubic_meters": "Natural Gas (m³)",
-    "petroleum_bbl_per_day": "Petroleum (bbl/day)",
-    "electricity_access_percent": "Electricity Access (%)",
-    "carbon_dioxide_emissions_Mt": "CO₂ Emissions (Mt)"
-}
 
-for m in metrics:
-    df[m] = pd.to_numeric(df[m], errors="coerce")
 
-# --------------------------
-# Country centroid lookup
-# --------------------------
-country_coords = {
-    "IND": {"lat": 20.5937, "lon": 78.9629},
-    "USA": {"lat": 37.0902, "lon": -95.7129},
-    "AUS": {"lat": -25.2744, "lon": 133.7751},
-    "BRA": {"lat": -14.2350, "lon": -51.9253},
-    "CHN": {"lat": 35.8617, "lon": 104.1954},
-    "RUS": {"lat": 61.5240, "lon": 105.3188},
-    "GBR": {"lat": 55.3781, "lon": -3.4360},
-    "CAN": {"lat": 56.1304, "lon": -106.3468},
-    "ZAF": {"lat": -30.5595, "lon": 22.9375},
-    "FRA": {"lat": 46.2276, "lon": 2.2137},
-    "DEU": {"lat": 51.1657, "lon": 10.4515},
-    "JPN": {"lat": 36.2048, "lon": 138.2529},
-    # Add more ISO3 codes as needed
-}
-
-# --------------------------
-# App setup
-# --------------------------
+# -------------------------------------------------
+# DASH APP
+# -------------------------------------------------
 app = dash.Dash(__name__)
-app.title = "Global Energy Dashboard"
-app.layout = html.Div(style={"height": "100vh", "width": "100vw", "overflow": "hidden", "backgroundColor": "#121212"}, children=[
-    dcc.Graph(id="energy-map", style={"position": "absolute", "top": 0, "left": 0, "right": 0, "bottom": 0}),
+app.title = "Global Data Dashboard"
+
+app.layout = html.Div(style={"backgroundColor": "#121212", "height": "100vh"}, children=[
+
+    dcc.Graph(id="world-map", style={"height": "100%", "width": "100%"}),
+
     html.Div([
-        html.Label("Select Energy Metric:", style={"color": "#eaeaea", "fontWeight": "bold"}),
+
+        html.Label("Dataset:", style={"color": "white"}),
         dcc.Dropdown(
-            id="metric-dropdown",
-            options=[{"label": metric_labels[m], "value": m} for m in metrics],
-            value="natural_gas_cubic_meters",
-            style={"width": "280px", "color": "#111"},
+            id="dataset-dropdown",
+            options=[
+                {"label": "Energy", "value": "energy"},
+                {"label": "Demographics", "value": "demographics"},
+                {"label": "Economy", "value": "economy"},
+            ],
+            value="energy",
             clearable=False
+        ),
+
+        html.Br(),
+
+        html.Label("Metric:", style={"color": "white"}),
+        dcc.Dropdown(id="metric-dropdown", clearable=False),
+
+        html.Br(),
+
+        html.Button(
+            "Reset Selection",
+            id="reset-btn",
+            n_clicks=0,
+            style={
+                "width": "100%",
+                "padding": "10px",
+                "backgroundColor": "#444",
+                "color": "white",
+                "borderRadius": "6px",
+                "border": "none",
+                "cursor": "pointer"
+            }
         )
-    ], style={
-        "position": "absolute", "top": "20px", "right": "20px", "backgroundColor": "rgba(0,0,0,0.6)",
-        "padding": "12px", "borderRadius": "8px", "zIndex": 1000
-    }),
-    html.Div([
-        html.Div([
-            html.Div("Country", style={"fontSize": "14px", "color": "#cccccc"}),
-            html.Div(id="selected-country", style={"fontSize": "18px", "fontWeight": "bold", "color": "#ffffff"})
-        ], style={
-            "backgroundColor": "#3a3a3a",
-            "padding": "12px 16px",
-            "borderRadius": "10px",
-            "marginBottom": "10px",
-            "border": "1px solid black",
-            "boxShadow": "0 0 10px rgba(0,0,0,0.4)"
-        }),
-        html.Div([
-            html.Div("Energy Value", style={"fontSize": "14px", "color": "#cccccc"}),
-            html.Div(id="energy-value", style={"fontSize": "18px", "fontWeight": "bold", "color":"#ffffff"})
-        ], style={
-            "backgroundColor": "#3a3a3a",
-            "padding": "12px 16px",
-            "borderRadius": "10px",
-            "border": "1px solid black",
-            "boxShadow": "0 0 10px rgba(0,0,0,0.4)"
-        })
+
     ], style={
         "position": "absolute",
         "top": "20px",
-        "left": "20px",
+        "right": "20px",
+        "padding": "15px",
+        "backgroundColor": "rgba(0,0,0,0.6)",
+        "borderRadius": "10px",
+        "width": "280px",
         "zIndex": 1000
     })
-])
-# --------------------------
-# Map callback with zoom-to-country
-# --------------------------
-@app.callback(
-    Output("energy-map", "figure"),
-    Input("metric-dropdown", "value"),
-    Input("energy-map", "clickData")
-)
-def update_map(metric, clickData):
-    data = df[df[metric].notna()]
-    selected_iso = None
-    if clickData and "points" in clickData:
-        selected_iso = clickData["points"][0].get("location")
 
+])
+
+
+
+# -------------------------------------------------
+# UPDATE METRIC DROPDOWN
+# -------------------------------------------------
+@app.callback(
+    Output("metric-dropdown", "options"),
+    Output("metric-dropdown", "value"),
+    Input("dataset-dropdown", "value")
+)
+def update_metric_dropdown(dataset_key):
+    opts = metric_options[dataset_key]
+    return [{"label": v, "value": k} for k, v in opts.items()], list(opts.keys())[0]
+
+
+
+# -------------------------------------------------
+# MAIN MAP CALLBACK (ZOOM + FILL + BORDER HIGHLIGHT)
+# -------------------------------------------------
+@app.callback(
+    Output("world-map", "figure"),
+    Input("dataset-dropdown", "value"),
+    Input("metric-dropdown", "value"),
+    Input("world-map", "clickData"),
+    Input("reset-btn", "n_clicks")
+)
+def update_map(dataset_key, metric, clickData, reset_clicks):
+
+    df = datasets[dataset_key]
+
+    ctx = dash.callback_context
+    trigger = ctx.triggered[0]["prop_id"].split(".")[0]
+
+    selected_iso = None
+
+    if trigger == "world-map" and clickData and "points" in clickData:
+        selected_iso = clickData["points"][0]["location"]
+    elif trigger == "reset-btn":
+        selected_iso = None
+
+    # ------- BASE CHOROPLETH -------
     fig = px.choropleth_mapbox(
-        data,
+        df,
         geojson=geojson,
         locations="ISO3",
         color=metric,
         hover_name="Country",
-        color_continuous_scale="Viridis",
+        color_continuous_scale="Sunset",
         mapbox_style="carto-darkmatter",
-        zoom=1.2,
+        zoom=1,
         center={"lat": 20, "lon": 0},
-        opacity=0.7,
-        height=800
+        opacity=0.75,
     )
 
     fig.update_layout(
-        margin={"r":0,"t":0,"l":0,"b":0},
-        paper_bgcolor="#121212",
-        font_color="#eaeaea",
-        uirevision="metric"
+        margin=dict(l=0, r=0, t=0, b=0),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font_color="white",
+        clickmode="event",
+        uirevision=True
     )
 
-    fig.update_coloraxes(showscale=False)  # Remove colorbar
+    fig.update_traces(marker_line_width=0.4, marker_line_color="#222")
 
-    # Zoom in and highlight selected country
-    if selected_iso and selected_iso in country_coords:
-        coords = country_coords[selected_iso]
-        fig.update_layout(
-            mapbox_zoom=3,
-            mapbox_center={"lat": coords["lat"], "lon": coords["lon"]}
+    # ------- COLORBAR -------
+    fig.update_coloraxes(
+        showscale=True,
+        colorbar=dict(
+            title=dict(
+                text=metric_options[dataset_key][metric],
+                font=dict(color="white", size=14)
+            ),
+            tickfont=dict(color="white"),
+            bgcolor="rgba(0,0,0,0)",
+            orientation="h",
+            x=0.05,
+            y=0.01,
+            len=0.30,
+            thickness=10
         )
-        fig.add_trace(go.Choroplethmapbox(
-            geojson=geojson,
-            locations=[selected_iso],
-            z=[1],
-            colorscale=[[0, "#00a3ff"], [1, "#00a3ff"]],
-            marker_line_width=1.5,
-            marker_line_color="white",
-            showscale=False,
-            hoverinfo="skip"
-        ))
+    )
+
+    # -------------------------------------------------
+    # FILLED HIGHLIGHT + BORDER + ZOOM
+    # -------------------------------------------------
+    if selected_iso:
+
+        fill_color   = "rgba(255, 0, 0, 0.35)"   # gold semi-transparent
+        border_color = "#FF0000"                   # gold border
+
+        fig.add_trace(
+            go.Choroplethmapbox(
+                geojson=geojson,
+                locations=[selected_iso],
+                z=[1],
+                colorscale=[[0, fill_color], [1, fill_color]],
+                marker=dict(line=dict(width=4, color=border_color)),
+                showscale=False,
+                hoverinfo="skip"
+            )
+        )
+
+        if selected_iso in country_center:
+            fig.update_layout(
+                mapbox_zoom=2.5,
+                mapbox_center=country_center[selected_iso]
+            )
 
     return fig
 
-# --------------------------
-# Text callback
-# --------------------------
-@app.callback(
-    Output("selected-country", "children"),
-    Output("energy-value", "children"),
-    Input("energy-map", "clickData"),
-    Input("metric-dropdown", "value")
-)
-def update_energy_value(clickData, metric):
-    if clickData and "points" in clickData:
-        iso = clickData["points"][0].get("location")
-        row = df[df["ISO3"] == iso]
-        if not row.empty:
-            country = row["Country"].values[0]
-            val = row[metric].values[0]
-            if pd.isna(val):
-                return f"{country}", f"{metric_labels.get(metric, metric)}: No data available"
-            return f"{country}", f"{metric_labels.get(metric, metric)}: {val:,.0f}"
-    return "", ""
 
-# --------------------------
-# Run
-# --------------------------
+
+# -------------------------------------------------
+# RUN APP
+# -------------------------------------------------
 if __name__ == "__main__":
     app.run(debug=True)
