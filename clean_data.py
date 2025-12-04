@@ -62,7 +62,7 @@ def clean_outliers(df: pd.DataFrame, clean_list: list, del_list: list):
 
 def load_and_clean_separate():
     datasets = {
-        "communications": pd.read_csv("CIA Global Statistical Database\\communications_data.csv", delimiter=",", low_memory=False),
+       "communications": pd.read_csv("CIA Global Statistical Database\\communications_data.csv", delimiter=",", low_memory=False),
         "demographics": pd.read_csv("CIA Global Statistical Database\\demographics_data.csv", delimiter=",", low_memory=False),
         "economy": pd.read_csv("CIA Global Statistical Database\\economy_data.csv", delimiter=",", low_memory=False),
         "energy": pd.read_csv("CIA Global Statistical Database\\energy_data.csv", delimiter=",", low_memory=False),
@@ -92,3 +92,8 @@ def load_and_clean_separate():
         datasets[name] = clean_outliers(datasets[name], clean_list, del_list)
 
     return datasets
+
+# Example usage:
+#cleaned_data = load_and_clean_separate()
+#print(cleaned_data["economy"].sample(5))
+#print(cleaned_data["communications"].head(5))
