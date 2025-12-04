@@ -92,8 +92,3 @@ def load_and_clean_separate():
         datasets[name] = clean_outliers(datasets[name], clean_list, del_list)
 
     return datasets
-
-# Example usage:
-cleaned_data = load_and_clean_separate()
-#print(cleaned_data["economy"].sample(5))
-# print(cleaned_data["communications"].head(5))
