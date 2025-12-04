@@ -10,7 +10,7 @@ import pycountry
 from clean_data import load_and_clean_separate
 from country_centers import country_center
 from energy_environment_plot import electricity_vs_poverty
-from development_poverty_plot import plot_agriculture_insights
+from agriculture_plots import plot_agriculture_insights
 
 # Inject CSS
 os.makedirs("assets", exist_ok=True)
@@ -28,13 +28,11 @@ with open("assets/style.css", "w") as f:
         }
     """)
 
-
 def get_iso3(name):
     try:
         return pycountry.countries.lookup(name).alpha_3
     except:
         return None
-
 
 def sidebar_style(display="none"):
     return {
@@ -46,8 +44,8 @@ def sidebar_style(display="none"):
         "backgroundColor": "white",
         "padding": "20px",
         "boxShadow": "2px 0 12px rgba(0,0,0,0.25)",
-        "overflowX": "scroll",  # horizontal scroll
-        "overflowY": "scroll",  # vertical scroll
+        "overflowX": "scroll",   # horizontal scroll
+        "overflowY": "scroll",   # vertical scroll
         "display": display,
         "zIndex": 999
     }
@@ -86,9 +84,7 @@ metric_categories = [
 
 category_mapping = {
     "Energy & Environment": [
-        {"dataset": "energy",
-         "metrics": ["natural_gas_cubic_meters", "petroleum_bbl_per_day", "electricity_access_percent",
-                     "carbon_dioxide_emissions_Mt"]},
+        {"dataset": "energy", "metrics": ["natural_gas_cubic_meters", "petroleum_bbl_per_day", "electricity_access_percent", "carbon_dioxide_emissions_Mt"]},
         {"dataset": "economy", "metrics": ["Real_GDP_per_Capita_USD"]}
     ],
     "Development & Poverty": [
@@ -104,8 +100,7 @@ category_mapping = {
         {"dataset": "economy", "metrics": ["Unemployment_Rate_percent"]}
     ],
     "Agriculture & Economy": [
-        {"dataset": "geography",
-         "metrics": ["Agricultural_Land", "Arable_Land (percentage of Total Agricultural Land)"]},
+        {"dataset": "geography", "metrics": ["Agricultural_Land", "Arable_Land (percentage of Total Agricultural Land)"]},
         {"dataset": "economy", "metrics": ["Real_GDP_per_Capita_USD"]}
     ]
 }
@@ -171,7 +166,6 @@ app.layout = html.Div(style={"backgroundColor": "#121212", "height": "100vh"}, c
     html.Div(id="sidebar", style=sidebar_style("none"))
 ])
 
-
 @app.callback(
     Output("world-map", "figure"),
     Input("dataset-dropdown", "value"),
@@ -189,6 +183,7 @@ def update_map(dataset_key, category, clickData, reset_clicks):
     elif trigger == "reset-btn":
         selected_iso = None
 
+    
     if category == "choose_category":
         fig = px.choropleth_mapbox(
             all_countries,
@@ -288,10 +283,8 @@ def update_map(dataset_key, category, clickData, reset_clicks):
             )
 
     return fig
-
-
 # -------------------------------------------------
-# Sidebar callback: open when category selected, close on reset
+# Sidebar callback
 # -------------------------------------------------
 @app.callback(
     Output("sidebar", "children"),
@@ -314,8 +307,24 @@ def toggle_sidebar(category, reset_clicks):
 
     # If Agriculture & Economy selected, show agriculture plots
     if category == "Agriculture & Economy":
-        fig = plot_agriculture_insights(cleaned_data)
-        return [dcc.Graph(figure=fig, style={"height": "100%", "width": "100%"})], sidebar_style("block")
+        figures = plot_agriculture_insights(cleaned_data)
+        
+        # Create Tabs
+        tabs = dcc.Tabs([
+            dcc.Tab(label="Overview", children=[
+                dcc.Graph(figure=figures["bar"], style={"height": "85vh", "width": "100%"})
+            ], style={"color": "black"}, selected_style={"color": "black", "fontWeight": "bold"}),
+            
+            dcc.Tab(label="Correlation", children=[
+                dcc.Graph(figure=figures["heatmap"], style={"height": "85vh", "width": "100%"})
+            ], style={"color": "black"}, selected_style={"color": "black", "fontWeight": "bold"}),
+            
+            dcc.Tab(label="Distribution", children=[
+                dcc.Graph(figure=figures["scatter"], style={"height": "85vh", "width": "100%"})
+            ], style={"color": "black"}, selected_style={"color": "black", "fontWeight": "bold"})
+        ], colors={"border": "white", "primary": "gold", "background": "#f9f9f9"})
+        
+        return [tabs], sidebar_style("block")
 
     # Otherwise open empty sidebar
     return [], sidebar_style("block")

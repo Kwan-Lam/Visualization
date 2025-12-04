@@ -48,7 +48,7 @@ def electricity_vs_poverty(cleaned_data):
         hover_name="Country",
         facet_col="Region",
         facet_col_wrap=2,   # fewer plots per row for readability
-        trendline="ols",
+        # trendline="ols",
         labels={
             "Population_Below_Poverty_Line_percent": "Population Below Poverty Line (%)",
             "electricity_access_percent": "Electricity Access (%)"
