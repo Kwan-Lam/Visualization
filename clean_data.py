@@ -62,13 +62,13 @@ def clean_outliers(df: pd.DataFrame, clean_list: list, del_list: list):
 
 def load_and_clean_separate():
     datasets = {
-        "communications": pd.read_csv("/Users/varshinir/Desktop/viz/CIA Global Statistical Database/communications_data.csv", delimiter=",", low_memory=False),
-        "demographics": pd.read_csv("/Users/varshinir/Desktop/viz/CIA Global Statistical Database/demographics_data.csv", delimiter=",", low_memory=False),
-        "economy": pd.read_csv("/Users/varshinir/Desktop/viz/CIA Global Statistical Database/economy_data.csv", delimiter=",", low_memory=False),
-        "energy": pd.read_csv("/Users/varshinir/Desktop/viz/CIA Global Statistical Database/energy_data.csv", delimiter=",", low_memory=False),
-        "geography": pd.read_csv("/Users/varshinir/Desktop/viz/CIA Global Statistical Database/geography_data.csv", delimiter=",", low_memory=False),
-        "government": pd.read_csv("/Users/varshinir/Desktop/viz/CIA Global Statistical Database/government_and_civics_data.csv", delimiter=",", low_memory=False),
-        "transportation": pd.read_csv("/Users/varshinir/Desktop/viz/CIA Global Statistical Database/transportation_data.csv", delimiter=",", low_memory=False),
+        "communications": pd.read_csv("CIA Global Statistical Database\\communications_data.csv", delimiter=",", low_memory=False),
+        "demographics": pd.read_csv("CIA Global Statistical Database\\demographics_data.csv", delimiter=",", low_memory=False),
+        "economy": pd.read_csv("CIA Global Statistical Database\\economy_data.csv", delimiter=",", low_memory=False),
+        "energy": pd.read_csv("CIA Global Statistical Database\\energy_data.csv", delimiter=",", low_memory=False),
+        "geography": pd.read_csv("CIA Global Statistical Database\\geography_data.csv", delimiter=",", low_memory=False),
+        "government": pd.read_csv("CIA Global Statistical Database\\government_and_civics_data.csv", delimiter=",", low_memory=False),
+        "transportation": pd.read_csv("CIA Global Statistical Database\\transportation_data.csv", delimiter=",", low_memory=False),
     }
 
     exclude_cols = ["Country", "internet_country_code", "Fiscal_Year", "Geographic_Coordinates", "Capital", "Capital_Coordinates"]
@@ -96,4 +96,4 @@ def load_and_clean_separate():
 # Example usage:
 cleaned_data = load_and_clean_separate()
 #print(cleaned_data["economy"].sample(5))
-print(cleaned_data["communications"].head(5))
+# print(cleaned_data["communications"].head(5))
