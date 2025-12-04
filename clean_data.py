@@ -93,7 +93,6 @@ def load_and_clean_separate():
 
     return datasets
 
-# Example usage:
-#cleaned_data = load_and_clean_separate()
-#print(cleaned_data["economy"].sample(5))
-#print(cleaned_data["communications"].head(5))
+# communications_data, demographics_data, economy_data, energy_data, geography_data, government_and_civics_data, transportation_data
+df_total = load_clean_data()
+print(df_total.sample(5))
